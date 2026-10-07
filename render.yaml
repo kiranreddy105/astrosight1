@@ -1,0 +1,45 @@
+services:
+  # ==============================================================================
+  # ASTROSIGHT Backend API Node (FastAPI + PyTorch CNN)
+  # ==============================================================================
+  - type: web
+    name: astrosight-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    region: oregon
+    healthCheckPath: /api/health
+    disk:
+      name: astrosight-storage
+      mountPath: /app/data
+      sizeGB: 5
+    envVars:
+      - key: ASTROSIGHT_SECRET_KEY
+        generateValue: true
+      - key: DATA_DIR
+        value: /app/data
+      - key: UPLOAD_DIR
+        value: /app/data/uploads
+      - key: REPORT_DIR
+        value: /app/data/reports
+      - key: CORS_ORIGINS
+        value: "*"
+
+  # ==============================================================================
+  # ASTROSIGHT Frontend Web Client (React + Three.js + Nginx)
+  # ==============================================================================
+  - type: web
+    name: astrosight-client
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    plan: starter
+    region: oregon
+    healthCheckPath: /healthz
+    envVars:
+      - key: BACKEND_URL
+        fromService:
+          type: web
+          name: astrosight-api
+          property: host

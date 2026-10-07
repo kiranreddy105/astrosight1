@@ -1,0 +1,27 @@
+{
+  "architecture": "LightweightCraterCNN (3x Conv2d + BatchNorm + AdaptiveAvgPool + Dense)",
+  "classification_classes": [
+    "NON-CRATER",
+    "CRATER"
+  ],
+  "accuracy": 95.2,
+  "precision": 94.88,
+  "recall": 100.0,
+  "f1_score": 97.37,
+  "validation_accuracy": 95.2,
+  "validation_loss": 0.1191,
+  "confusion_matrix": {
+    "True_Crater": {
+      "Pred_Crater": 408,
+      "Pred_NonCrater": 0
+    },
+    "True_NonCrater": {
+      "Pred_Crater": 22,
+      "Pred_NonCrater": 28
+    }
+  },
+  "dataset_name": "LU3M6TGT Lunar Orbiter Topography Benchmark",
+  "total_samples_evaluated": 458,
+  "training_epochs": 8,
+  "status": "TRAINED_ON_AUTHENTIC_DATASET"
+}

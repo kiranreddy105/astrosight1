@@ -1,0 +1,46 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: astrosight-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - DATA_DIR=/app/data
+      - UPLOAD_DIR=/app/uploads
+      - REPORT_DIR=/app/reports
+      - ASTROSIGHT_SECRET_KEY=astrosight-super-secret-key-deep-space-orbital-2026
+      - CORS_ORIGINS=*
+    volumes:
+      - astrosight_data:/app/data
+      - astrosight_uploads:/app/uploads
+      - astrosight_reports:/app/reports
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: astrosight-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  astrosight_data:
+    name: astrosight_data
+  astrosight_uploads:
+    name: astrosight_uploads
+  astrosight_reports:
+    name: astrosight_reports
