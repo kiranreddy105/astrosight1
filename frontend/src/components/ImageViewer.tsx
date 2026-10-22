@@ -17,6 +17,8 @@ interface Props {
   imageUrl: string;
   craters: CraterItem[];
   resolution: number;
+  selectedUnit?: 'km' | 'm' | 'mi';
+  onUnitChange?: (unit: 'km' | 'm' | 'mi') => void;
   onSelectCrater?: (crater: CraterItem) => void;
   onMeasurementComputed?: (measurement: SpatialMeasurement) => void;
 }
@@ -25,11 +27,29 @@ export const ImageViewer: React.FC<Props> = ({
   imageUrl,
   craters,
   resolution,
+  selectedUnit = 'km',
+  onUnitChange,
   onSelectCrater,
   onMeasurementComputed,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+
+  // Unit State (km / m / mi)
+  const [unit, setUnit] = useState<'km' | 'm' | 'mi'>(selectedUnit);
+
+  useEffect(() => {
+    if (selectedUnit) {
+      setUnit(selectedUnit);
+    }
+  }, [selectedUnit]);
+
+  const handleUnitToggle = (newUnit: 'km' | 'm' | 'mi') => {
+    setUnit(newUnit);
+    if (onUnitChange) {
+      onUnitChange(newUnit);
+    }
+  };
 
   // Natural image dimensions
   const [naturalDim, setNaturalDim] = useState<{ width: number; height: number }>({ width: 512, height: 512 });
@@ -157,8 +177,21 @@ export const ImageViewer: React.FC<Props> = ({
           const dx = selectedCraterB.x - selectedCraterA.x;
           const dy = selectedCraterB.y - selectedCraterA.y;
           const px = Math.sqrt(dx * dx + dy * dy);
-          const km = (px * resolution) / 1000.0;
-          return { px: px.toFixed(2), km: km.toFixed(2) };
+          const m = px * resolution;
+          const km = m / 1000.0;
+          const mi = km * 0.621371;
+
+          let formatted = `${km.toFixed(2)} KM`;
+          if (unit === 'm') formatted = `${m.toFixed(1)} M`;
+          if (unit === 'mi') formatted = `${mi.toFixed(2)} MI`;
+
+          return {
+            px: px.toFixed(2),
+            m: m.toFixed(1),
+            km: km.toFixed(2),
+            mi: mi.toFixed(2),
+            formatted,
+          };
         })()
       : null;
 
@@ -563,6 +596,31 @@ export const ImageViewer: React.FC<Props> = ({
               </div>
             </div>
 
+            {/* Unit Toggle Tabs (km / m / mi) */}
+            <div style={{ display: 'flex', gap: '4px', marginBottom: '10px', backgroundColor: 'rgba(10, 16, 28, 0.7)', padding: '3px', borderRadius: '6px' }}>
+              {(['km', 'm', 'mi'] as const).map((u) => (
+                <button
+                  key={u}
+                  onClick={() => handleUnitToggle(u)}
+                  style={{
+                    flex: 1,
+                    padding: '3px 0',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '0.7rem',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    backgroundColor: unit === u ? '#00e5ff' : 'transparent',
+                    color: unit === u ? '#05080e' : '#94a3b8',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {u.toUpperCase()}
+                </button>
+              ))}
+            </div>
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', borderTop: '1px solid rgba(56, 189, 248, 0.15)', paddingTop: '8px' }}>
               <div>
                 <div style={{ fontSize: '0.68rem', color: '#64748b' }}>PIXEL DISTANCE</div>
@@ -581,7 +639,10 @@ export const ImageViewer: React.FC<Props> = ({
                     fontWeight: 800,
                   }}
                 >
-                  {activeDistance.km} KM
+                  {activeDistance.formatted}
+                </div>
+                <div style={{ fontSize: '0.65rem', color: '#64748b', fontFamily: 'var(--font-mono)' }}>
+                  {activeDistance.km} km • {activeDistance.m} m • {activeDistance.mi} mi
                 </div>
               </div>
             </div>
@@ -597,6 +658,41 @@ export const ImageViewer: React.FC<Props> = ({
             </div>
           </div>
         )}
+
+        {/* HUD Scale Indicator */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '16px',
+            left: '16px',
+            background: 'rgba(10, 16, 28, 0.85)',
+            border: '1px solid rgba(56, 189, 248, 0.25)',
+            borderRadius: '6px',
+            padding: '6px 12px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.72rem',
+            color: '#94a3b8',
+            pointerEvents: 'none',
+            zIndex: 20,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '80px', height: '3px', background: '#00e5ff', position: 'relative' }}>
+              <div style={{ position: 'absolute', left: 0, top: '-4px', width: '2px', height: '11px', background: '#00e5ff' }} />
+              <div style={{ position: 'absolute', right: 0, top: '-4px', width: '2px', height: '11px', background: '#00e5ff' }} />
+            </div>
+            <span style={{ color: '#00e5ff', fontWeight: 600 }}>
+              {unit === 'm'
+                ? `${(80 * resolution).toFixed(0)} M`
+                : unit === 'mi'
+                ? `${((80 * resolution) / 1609.34).toFixed(2)} MI`
+                : `${((80 * resolution) / 1000.0).toFixed(2)} KM`}
+            </span>
+          </div>
+          <div style={{ fontSize: '0.62rem', color: '#64748b', marginTop: '2px' }}>
+            SCALE: {resolution} M/PX @ {(scale * 100).toFixed(0)}%
+          </div>
+        </div>
 
         {/* Measure Mode Instruction Pill */}
         {isMeasureMode && !activeDistance && (

@@ -114,3 +114,30 @@ export interface SampleImageSpecimen {
   expected_state: string;
   filename: string;
 }
+
+export interface DatasetStats {
+  dataset_name: string;
+  total_images: number;
+  crater_images: number;
+  non_crater_images: number;
+  training_images: number;
+  validation_images: number;
+  test_images: number;
+  annotated_crater_boxes: number;
+  ground_sample_distance: string;
+  sensor: string;
+  format: string;
+  status: string;
+}
+
+export interface DatasetPreviewItem {
+  id: string;
+  filename: string;
+  preview_url: string;
+  crater_count: number;
+  dimensions: string;
+  resolution: string;
+  split: string;
+  terrain_type: string;
+}
+

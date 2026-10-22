@@ -73,11 +73,14 @@ class SpatialDistanceRequest(BaseModel):
     crater_a: CraterItem
     crater_b: CraterItem
     resolution_m_per_px: float = 10.0
+    unit: Optional[str] = "km"
 
 class SpatialDistanceResult(BaseModel):
     pixel_distance: float
     real_distance_m: float
     real_distance_km: float
+    real_distance_mi: Optional[float] = None
+    formatted_display: Optional[str] = None
     crater_a_name: str
     crater_b_name: str
     resolution_m_per_px: float
@@ -119,4 +122,18 @@ class ModelPerformanceMetrics(BaseModel):
     dataset_name: str
     total_samples_evaluated: int
     training_epochs: int
+    status: str
+
+class DatasetStatsResponse(BaseModel):
+    dataset_name: str
+    total_images: int
+    crater_images: int
+    non_crater_images: int
+    training_images: int
+    validation_images: int
+    test_images: int
+    annotated_crater_boxes: int
+    ground_sample_distance: str
+    sensor: str
+    format: str
     status: str

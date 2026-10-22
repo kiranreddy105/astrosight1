@@ -5,7 +5,9 @@ import type {
   ModelPerformanceMetrics,
   SampleImageSpecimen,
   SpatialMeasurement,
-  CraterItem
+  CraterItem,
+  DatasetStats,
+  DatasetPreviewItem
 } from '../types';
 
 const API_BASE = '/api';
@@ -122,13 +124,14 @@ export const api = {
     });
   },
 
-  async computeSpatialVector(craterA: CraterItem, craterB: CraterItem, resolution: number) {
+  async computeSpatialVector(craterA: CraterItem, craterB: CraterItem, resolution: number, unit: string = 'km') {
     return request<SpatialMeasurement>('/spatial-analysis', {
       method: 'POST',
       body: JSON.stringify({
         crater_a: craterA,
         crater_b: craterB,
         resolution_m_per_px: resolution,
+        unit,
       }),
     });
   },
@@ -154,4 +157,20 @@ export const api = {
   async getSampleImages() {
     return request<SampleImageSpecimen[]>('/sample-images');
   },
+
+  async getDatasetStats() {
+    return request<DatasetStats>('/dataset/stats');
+  },
+
+  async getDatasetPreviews(limit: number = 12) {
+    return request<DatasetPreviewItem[]>(`/dataset/previews?limit=${limit}`);
+  },
+
+  async uploadDatasetTile(formData: FormData) {
+    return request<{ message: string; filename: string; split: string; status: string }>('/dataset/upload', {
+      method: 'POST',
+      body: formData,
+    });
+  },
 };
+

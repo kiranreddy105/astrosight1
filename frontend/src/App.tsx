@@ -11,6 +11,7 @@ import { MissionControlPage } from './pages/MissionControlPage';
 import { AnalysisPage } from './pages/AnalysisPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { ModelPerformancePage } from './pages/ModelPerformancePage';
+import { DatasetPage } from './pages/DatasetPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ThreePlanetGlobe } from './components/ThreePlanetGlobe';
@@ -167,6 +168,14 @@ const MainApp: React.FC = () => {
             <HistoryPage
               onViewAnalysis={(analysis) => {
                 setSelectedAnalysisForView(analysis);
+                setActiveTab('analyze');
+              }}
+            />
+          )}
+
+          {activeTab === 'dataset' && (
+            <DatasetPage
+              onAnalyzeSpecimen={() => {
                 setActiveTab('analyze');
               }}
             />

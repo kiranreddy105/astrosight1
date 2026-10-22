@@ -10,6 +10,7 @@ import {
   Activity,
   User as UserIcon,
   Settings,
+  Database,
   ChevronRight,
   LogOut,
 } from 'lucide-react';
@@ -21,16 +22,17 @@ interface Props {
 }
 
 const MENU_ITEMS = [
-  { id: 'portal', label: 'Mission Control', icon: LayoutDashboard },
-  { id: 'analyze', label: 'Analyze Image', icon: UploadCloud, badge: 'CORE' },
+  { id: 'portal', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'analyze', label: 'Image Analysis', icon: UploadCloud, badge: 'CORE' },
   { id: 'detect', label: 'Crater Detection', icon: Crosshair },
   { id: 'spatial', label: 'Spatial Analysis', icon: Ruler },
-  { id: 'globe', label: '3D Planet View', icon: Globe2 },
+  { id: 'globe', label: 'Planetary Map 3D', icon: Globe2 },
   { id: 'history', label: 'Analysis History', icon: History },
-  { id: 'reports', label: 'Mission Reports', icon: FileText },
+  { id: 'dataset', label: 'Dataset', icon: Database },
   { id: 'model', label: 'Model Performance', icon: Activity },
+  { id: 'reports', label: 'Reports', icon: FileText },
   { id: 'profile', label: 'Researcher Profile', icon: UserIcon },
-  { id: 'settings', label: 'Platform Settings', icon: Settings },
+  { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
 export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab }) => {
@@ -130,13 +132,47 @@ export const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab }) => {
         })}
       </div>
 
-      {/* Footer Info / Researcher Card */}
+      {/* Footer Info & System Status (Section 3) */}
       <div
         style={{
           borderTop: '1px solid rgba(56, 189, 248, 0.12)',
           paddingTop: '14px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
         }}
       >
+        {/* System & AI Telemetry Indicators */}
+        <div
+          style={{
+            backgroundColor: 'rgba(10, 16, 28, 0.85)',
+            border: '1px solid rgba(56, 189, 248, 0.1)',
+            borderRadius: '8px',
+            padding: '8px 10px',
+            fontSize: '0.68rem',
+            fontFamily: 'var(--font-mono)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: '#64748b' }}>SYSTEM:</span>
+            <span style={{ color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }} />
+              ONLINE
+            </span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: '#64748b' }}>AI MODEL:</span>
+            <span style={{ color: '#00e5ff', fontWeight: 600 }}>CraterNet v2.4</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: '#64748b' }}>STATUS:</span>
+            <span style={{ color: '#38bdf8' }}>READY</span>
+          </div>
+        </div>
+
         {user ? (
           <div
             style={{
