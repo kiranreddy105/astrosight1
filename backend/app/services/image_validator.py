@@ -166,23 +166,39 @@ class ImageValidator:
                 "details": {"rejection_reason": "Terrestrial sky or water detected", "sky_water_ratio": round(sky_water_ratio, 3)}
             }
 
-        # 5. Long Rectilinear / Architectural lines (Cars, Buildings, Electronics, Screenshots)
-        edges = cv2.Canny(gray, 60, 180, apertureSize=3)
-        lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=90, minLineLength=70, maxLineGap=12)
-        long_line_count = len(lines) if lines is not None else 0
-        img_diagonal = np.sqrt(height**2 + width**2)
-        line_density = (long_line_count / img_diagonal) * 100.0
+        # 5. Long Rectilinear / Architectural grid lines (Buildings, indoor scenes, screenshots, man-made structures)
+        min_dim = min(height, width)
+        min_len = max(60, int(min_dim * 0.28))
+        edges = cv2.Canny(gray, 70, 190, apertureSize=3)
+        lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=100, minLineLength=min_len, maxLineGap=8)
 
-        if long_line_count > 25 and line_density > 4.5:
-            return {
-                "is_valid": False,
-                "state": "INVALID",
-                "title": "INVALID IMAGE",
-                "message": "Man-made rectilinear structures, architectural lines, or vehicle features detected.",
-                "detected_planet": "Unknown",
-                "planet_confidence": 0.0,
-                "details": {"rejection_reason": "Man-made straight edges detected", "line_count": long_line_count}
-            }
+        if lines is not None and len(lines) >= 14:
+            angles = []
+            for l in lines:
+                x1, y1, x2, y2 = l[0]
+                ang = np.degrees(np.arctan2(y2 - y1, x2 - x1)) % 180
+                angles.append(ang)
+            angles = np.array(angles)
+
+            # Man-made architecture and grids have orthogonal horizontal and vertical lines (0 deg and 90 deg)
+            h_v_count = np.sum((angles <= 10) | (angles >= 170) | (abs(angles - 90) <= 10))
+            rectilinear_ratio = float(h_v_count) / len(angles)
+
+            # Only reject if there is a dominant artificial perpendicular grid pattern
+            if len(lines) >= 16 and rectilinear_ratio > 0.60:
+                return {
+                    "is_valid": False,
+                    "state": "INVALID",
+                    "title": "INVALID IMAGE",
+                    "message": "Man-made rectilinear structures, architectural lines, or vehicle features detected.",
+                    "detected_planet": "Unknown",
+                    "planet_confidence": 0.0,
+                    "details": {
+                        "rejection_reason": "Man-made straight grid edges detected",
+                        "line_count": len(lines),
+                        "rectilinear_ratio": round(rectilinear_ratio, 2)
+                    }
+                }
 
         # 6. Determine Lunar vs Martian Planetary Signature
         is_lunar = False
