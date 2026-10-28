@@ -3,6 +3,7 @@ import uuid
 import json
 import time
 import shutil
+import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
@@ -120,13 +121,14 @@ def process_image_analysis(
     report_filename = f"report_{analysis_id}.pdf"
     report_dict = {
         "planet": detected_planet,
+        "image_filename": original_filename,
         "validation_state": val_state,
         "average_confidence": avg_conf,
         "resolution_m_per_px": resolution_m_per_px,
         "craters": craters,
         "spatial_measurements": measurements,
         "processing_time_ms": proc_time_ms,
-        "created_at": str(analysis_id)
+        "created_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     }
     generate_pdf_report(
         report_dict,
