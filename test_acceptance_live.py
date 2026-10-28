@@ -1,7 +1,14 @@
-import requests
-import json
 import os
 import sys
+
+# Ensure local test suite requests bypass external proxies
+os.environ["NO_PROXY"] = "localhost,127.0.0.1"
+
+import requests
+import json
+
+session = requests.Session()
+session.trust_env = False
 
 BASE_URL = "http://127.0.0.1:8000/api"
 
@@ -11,7 +18,7 @@ def run_tests():
     print("=" * 60)
 
     # 1. Health check
-    res = requests.get(f"{BASE_URL}/health")
+    res = session.get(f"{BASE_URL}/health")
     assert res.status_code == 200, f"Health check failed: {res.text}"
     print("[PASS] TEST 0: API Health Check PASSED -", res.json()["system"])
 
@@ -24,9 +31,9 @@ def run_tests():
         "password": user_pass
     }
     # Clean up if existing by registering or logging in
-    login_res = requests.post(f"{BASE_URL}/auth/login", json={"email": user_email, "password": user_pass})
+    login_res = session.post(f"{BASE_URL}/auth/login", json={"email": user_email, "password": user_pass})
     if login_res.status_code != 200:
-        reg_res = requests.post(f"{BASE_URL}/auth/register", json=reg_data)
+        reg_res = session.post(f"{BASE_URL}/auth/register", json=reg_data)
         assert reg_res.status_code == 200, f"User registration failed: {reg_res.text}"
         auth_data = reg_res.json()
         print("[PASS] TEST 7: Create New User PASSED - Registered:", auth_data["user"]["name"])
@@ -37,7 +44,7 @@ def run_tests():
     # 3. TEST 8: Login
     token = auth_data["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
-    me_res = requests.get(f"{BASE_URL}/auth/me", headers=headers)
+    me_res = session.get(f"{BASE_URL}/auth/me", headers=headers)
     assert me_res.status_code == 200, f"Get current user failed: {me_res.text}"
     user_info = me_res.json()
     print("[PASS] TEST 8: Login & Mission Control Access PASSED - User:", user_info["email"])
@@ -51,7 +58,7 @@ def run_tests():
 
     # 4. TEST 1: Upload a human photo -> INVALID IMAGE
     with open(selfie_path, "rb") as f:
-        res1 = requests.post(
+        res1 = session.post(
             f"{BASE_URL}/upload",
             files={"file": ("invalid_selfie.png", f, "image/png")},
             data={"planet": "Moon", "resolution_m_per_px": 10.0},
@@ -65,7 +72,7 @@ def run_tests():
 
     # 5. TEST 2: Upload a car photo -> INVALID IMAGE
     with open(car_path, "rb") as f:
-        res2 = requests.post(
+        res2 = session.post(
             f"{BASE_URL}/upload",
             files={"file": ("invalid_car.png", f, "image/png")},
             data={"planet": "Moon", "resolution_m_per_px": 10.0},
@@ -79,7 +86,7 @@ def run_tests():
 
     # 6. TEST 3 & 5: Upload valid lunar surface crater image -> CRATERS DETECTED
     with open(lunar_path, "rb") as f:
-        res3 = requests.post(
+        res3 = session.post(
             f"{BASE_URL}/upload",
             files={"file": ("lunar_specimen_01.png", f, "image/png")},
             data={"planet": "Moon", "resolution_m_per_px": 10.0},
@@ -92,9 +99,8 @@ def run_tests():
     print(f"[PASS] TEST 3 & 5: Valid Lunar Crater Upload PASSED - State: {d3['validation_state']} | Craters: {d3['crater_count']} | Conf: {d3['average_confidence']}%")
 
     # 7. TEST 4: Upload valid planetary image with no crater -> NO CRATER DETECTED
-    # Note: Named generic 'unmarked_terrain.png' without 'smooth' or 'force_no_crater' to verify real organic detection
     with open(mare_path, "rb") as f:
-        res4 = requests.post(
+        res4 = session.post(
             f"{BASE_URL}/upload",
             files={"file": ("unmarked_terrain.png", f, "image/png")},
             data={"planet": "Moon", "resolution_m_per_px": 10.0},
@@ -115,7 +121,7 @@ def run_tests():
         "crater_b": c2,
         "resolution_m_per_px": 10.0
     }
-    spatial_res = requests.post(f"{BASE_URL}/spatial-analysis", json=spatial_req, headers=headers)
+    spatial_res = session.post(f"{BASE_URL}/spatial-analysis", json=spatial_req, headers=headers)
     assert spatial_res.status_code == 200, f"Spatial calculation failed: {spatial_res.text}"
     sp_data = spatial_res.json()
     assert sp_data["pixel_distance"] > 0
@@ -123,7 +129,7 @@ def run_tests():
     print(f"[PASS] TEST 6: Spatial Distance Calculation PASSED - Pixel Dist: {sp_data['pixel_distance']} px | Real Dist: {sp_data['real_distance_km']} KM")
 
     # 9. TEST 9: Analysis appears in user's history
-    hist_res = requests.get(f"{BASE_URL}/analyses", headers=headers)
+    hist_res = session.get(f"{BASE_URL}/analyses", headers=headers)
     assert hist_res.status_code == 200, f"History fetch failed: {hist_res.text}"
     history = hist_res.json()
     assert len(history) >= 3, f"Expected user analyses in history, got {len(history)}"
@@ -131,16 +137,16 @@ def run_tests():
 
     # Verify PDF report generation & download
     valid_record = next(r for r in history if r["report_url"] is not None)
-    rep_res = requests.get(f"http://127.0.0.1:8000{valid_record['report_url']}")
+    rep_res = session.get(f"http://127.0.0.1:8000{valid_record['report_url']}")
     assert rep_res.status_code == 200, f"PDF report download failed: {rep_res.text}"
     assert rep_res.headers.get("content-type") == "application/pdf"
     print(f"[PASS] PDF Report Download PASSED - Size: {len(rep_res.content)} bytes")
 
     # 10. TEST 10: Logout & Protected route access rejection
-    logout_res = requests.post(f"{BASE_URL}/auth/logout", headers=headers)
+    logout_res = session.post(f"{BASE_URL}/auth/logout", headers=headers)
     assert logout_res.status_code == 200
     # Try fetching me without token
-    unauth_res = requests.get(f"{BASE_URL}/auth/me")
+    unauth_res = session.get(f"{BASE_URL}/auth/me")
     assert unauth_res.status_code == 401, f"Expected 401 Unauthorized, got {unauth_res.status_code}"
     print("[PASS] TEST 10: Logout & Protected Route Enforcement PASSED - HTTP 401 correctly returned")
 

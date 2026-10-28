@@ -65,28 +65,7 @@ class ImageValidator:
 
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-        # 1. Face / Human Portrait Detection (Frontal + Profile Haar)
-        faces_count = 0
-        if self.face_cascade is not None:
-            faces = self.face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30))
-            faces_count += len(faces)
-
-        if self.profile_cascade is not None and faces_count == 0:
-            profiles = self.profile_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30))
-            faces_count += len(profiles)
-
-        if faces_count > 0:
-            return {
-                "is_valid": False,
-                "state": "INVALID",
-                "title": "INVALID IMAGE",
-                "message": "Human photograph or facial features detected. AstroSight only accepts extraterrestrial planetary surfaces.",
-                "detected_planet": "Unknown",
-                "planet_confidence": 0.0,
-                "details": {"rejection_reason": "Human / Selfie detected", "face_count": faces_count}
-            }
-
-        # 2. Color & Spectrum Analysis
+        # Precompute HSV and Color Spectrum early for cross-verification
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         h, s, v = cv2.split(hsv)
 
@@ -97,21 +76,58 @@ class ImageValidator:
         mean_s = float(np.mean(s)) / 255.0
         std_s = float(np.std(s)) / 255.0
 
-        # Earth vegetation index ExG = 2*G - R - B
-        exg = 2.0 * g - r - b
-        vegetation_ratio = float(np.mean(exg > 25.0))
-
-        # Sky / Water detection (strong blue over red)
-        sky_water_ratio = float(np.mean((b > r + 30.0) & (b > 90.0)))
-
         # Human Skin Tone analysis in HSV
-        # Hue roughly 0-25 or 170-180, moderate saturation and value
         skin_mask = (
             ((h <= 25) | (h >= 170)) &
             (s >= 40) & (s <= 180) &
             (v >= 70) & (v <= 250)
         )
         skin_ratio = float(np.mean(skin_mask))
+
+        # 1. Face / Human Portrait Detection (Frontal + Profile Haar with Skin Tone Verification)
+        # Circular craters and shadows can exhibit pareidolia (false positive faces) on grayscale terrain.
+        # Authentic human portraits must have biological skin tones in the detected facial bbox or overall image.
+        verified_faces = []
+        if self.face_cascade is not None:
+            faces = self.face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(30, 30))
+            for (fx, fy, fw, fh) in faces:
+                face_patch = img[fy:fy+fh, fx:fx+fw]
+                if face_patch.size > 0:
+                    f_hsv = cv2.cvtColor(face_patch, cv2.COLOR_BGR2HSV)
+                    fh_h, fh_s, fh_v = cv2.split(f_hsv)
+                    f_skin = ((fh_h <= 25) | (fh_h >= 170)) & (fh_s >= 40) & (fh_s <= 180) & (fh_v >= 70) & (fh_v <= 250)
+                    if np.mean(f_skin) > 0.12 or skin_ratio > 0.06:
+                        verified_faces.append((fx, fy, fw, fh))
+
+        if self.profile_cascade is not None and len(verified_faces) == 0:
+            profiles = self.profile_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(30, 30))
+            for (px, py, pw, ph) in profiles:
+                p_patch = img[py:py+ph, px:px+pw]
+                if p_patch.size > 0:
+                    p_hsv = cv2.cvtColor(p_patch, cv2.COLOR_BGR2HSV)
+                    ph_h, ph_s, ph_v = cv2.split(p_hsv)
+                    p_skin = ((ph_h <= 25) | (ph_h >= 170)) & (ph_s >= 40) & (ph_s <= 180) & (ph_v >= 70) & (ph_v <= 250)
+                    if np.mean(p_skin) > 0.12 or skin_ratio > 0.06:
+                        verified_faces.append((px, py, pw, ph))
+
+        if len(verified_faces) > 0:
+            return {
+                "is_valid": False,
+                "state": "INVALID",
+                "title": "INVALID IMAGE",
+                "message": "Human photograph or facial features detected. AstroSight only accepts extraterrestrial planetary surfaces.",
+                "detected_planet": "Unknown",
+                "planet_confidence": 0.0,
+                "details": {"rejection_reason": "Human / Selfie detected", "face_count": len(verified_faces)}
+            }
+
+        # 2. Color & Spectrum Analysis
+        # Earth vegetation index ExG = 2*G - R - B
+        exg = 2.0 * g - r - b
+        vegetation_ratio = float(np.mean(exg > 25.0))
+
+        # Sky / Water detection (strong blue over red)
+        sky_water_ratio = float(np.mean((b > r + 30.0) & (b > 90.0)))
 
         # Channel difference standard deviation (chromatic diversity)
         rg_diff_std = float(np.std(r - g))
@@ -172,7 +188,7 @@ class ImageValidator:
         edges = cv2.Canny(gray, 70, 190, apertureSize=3)
         lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=100, minLineLength=min_len, maxLineGap=8)
 
-        if lines is not None and len(lines) >= 14:
+        if lines is not None and len(lines) >= 16:
             angles = []
             for l in lines:
                 x1, y1, x2, y2 = l[0]
@@ -180,12 +196,23 @@ class ImageValidator:
                 angles.append(ang)
             angles = np.array(angles)
 
-            # Man-made architecture and grids have orthogonal horizontal and vertical lines (0 deg and 90 deg)
-            h_v_count = np.sum((angles <= 10) | (angles >= 170) | (abs(angles - 90) <= 10))
-            rectilinear_ratio = float(h_v_count) / len(angles)
+            # Man-made architecture and grids have orthogonal horizontal AND vertical lines (0 deg and 90 deg)
+            h_count = int(np.sum((angles <= 10) | (angles >= 170)))
+            v_count = int(np.sum(abs(angles - 90) <= 10))
+            total_lines = len(angles)
 
-            # Only reject if there is a dominant artificial perpendicular grid pattern
-            if len(lines) >= 16 and rectilinear_ratio > 0.60:
+            # A man-made orthogonal grid (windows, building facades, spreadsheet, vehicle frames)
+            # strictly requires both prominent horizontal AND vertical lines forming perpendicular cross-hatching.
+            # Natural oblique planetary horizons only have horizontal parallel shadow terminators (v_count near 0).
+            is_orthogonal_grid = (
+                total_lines >= 16 and
+                h_count >= 8 and
+                v_count >= 8 and
+                (h_count + v_count) / total_lines >= 0.65 and
+                min(h_count, v_count) / total_lines >= 0.15
+            )
+
+            if is_orthogonal_grid:
                 return {
                     "is_valid": False,
                     "state": "INVALID",
@@ -195,8 +222,10 @@ class ImageValidator:
                     "planet_confidence": 0.0,
                     "details": {
                         "rejection_reason": "Man-made straight grid edges detected",
-                        "line_count": len(lines),
-                        "rectilinear_ratio": round(rectilinear_ratio, 2)
+                        "line_count": total_lines,
+                        "h_count": h_count,
+                        "v_count": v_count,
+                        "rectilinear_ratio": round((h_count + v_count) / total_lines, 2)
                     }
                 }
 
