@@ -466,16 +466,30 @@ export const ImageViewer: React.FC<Props> = ({
                       opacity={isSelectedA || isSelectedB || isHovered ? 0.75 : 0.35}
                     />
 
-                    {/* Circular crater rim outline */}
-                    <circle
-                      cx={crater.x}
-                      cy={crater.y}
-                      r={crater.radius}
-                      fill={isSelectedA || isSelectedB ? 'rgba(0, 229, 255, 0.18)' : 'none'}
-                      stroke={strokeColor}
-                      strokeWidth={isSelectedA || isSelectedB ? 2.5 : 1.5}
-                      opacity={0.9}
-                    />
+                    {/* Elliptical or Circular crater rim outline */}
+                    {crater.ellipse && crater.ellipse.major && crater.ellipse.minor ? (
+                      <ellipse
+                        cx={crater.x}
+                        cy={crater.y}
+                        rx={crater.ellipse.major}
+                        ry={crater.ellipse.minor}
+                        transform={`rotate(${crater.ellipse.angle || 0} ${crater.x} ${crater.y})`}
+                        fill={isSelectedA || isSelectedB ? 'rgba(0, 229, 255, 0.18)' : 'none'}
+                        stroke={strokeColor}
+                        strokeWidth={isSelectedA || isSelectedB ? 2.5 : 1.5}
+                        opacity={0.9}
+                      />
+                    ) : (
+                      <circle
+                        cx={crater.x}
+                        cy={crater.y}
+                        r={crater.radius}
+                        fill={isSelectedA || isSelectedB ? 'rgba(0, 229, 255, 0.18)' : 'none'}
+                        stroke={strokeColor}
+                        strokeWidth={isSelectedA || isSelectedB ? 2.5 : 1.5}
+                        opacity={0.9}
+                      />
+                    )}
 
                     {/* Center crosshair marker (+) */}
                     <line

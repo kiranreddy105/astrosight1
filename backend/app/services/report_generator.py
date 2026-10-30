@@ -68,34 +68,47 @@ def create_detection_visualizations(
         # 2. Render Exhibit B: Overlays
         vis_img = img.copy()
 
-        # Sort craters by size descending so labels overlay cleanly
-        sorted_craters = sorted(craters, key=lambda c: c.get("radius", 0), reverse=True)
+        cyan = (255, 229, 0) # Electric cyan in BGR
+        font = cv2.FONT_HERSHEY_SIMPLEX
 
-        for idx, c in enumerate(sorted_craters):
-            cx = int(c.get("x", 0))
-            cy = int(c.get("y", 0))
-            r = max(6, int(c.get("radius", 15)))
-            cid_num = idx + 1
-            cid_str = f"#{cid_num:02d}"
+        for idx, c in enumerate(craters):
+            cx = int(round(c.get("x", 0)))
+            cy = int(round(c.get("y", 0)))
+            r = max(6, int(round(c.get("radius", 15))))
+            ell = c.get("ellipse")
 
-            # Cyan circular rim outline (BGR: [235, 185, 0] or [255, 200, 0])
-            cv2.circle(vis_img, (cx, cy), r, (235, 185, 0), 2, cv2.LINE_AA)
+            # 1. Cyan elliptical or circular rim boundary
+            if ell and ell.get("major", 0) > 0 and ell.get("minor", 0) > 0:
+                ecx = int(round(ell["cx"]))
+                ecy = int(round(ell["cy"]))
+                maj = max(4, int(round(ell["major"])))
+                minr = max(4, int(round(ell["minor"])))
+                ang = float(ell.get("angle", 0.0))
+                cv2.ellipse(vis_img, (ecx, ecy), (maj, minr), ang, 0, 360, cyan, 2, cv2.LINE_AA)
+            else:
+                cv2.circle(vis_img, (cx, cy), r, cyan, 2, cv2.LINE_AA)
 
-            # Center point marker
-            cv2.circle(vis_img, (cx, cy), 2, (0, 229, 255), -1, cv2.LINE_AA)
+            # 2. Centroid point & crosshair marker
+            cv2.circle(vis_img, (cx, cy), 2, cyan, -1, cv2.LINE_AA)
+            cv2.line(vis_img, (cx - 4, cy), (cx + 4, cy), cyan, 1, cv2.LINE_AA)
+            cv2.line(vis_img, (cx, cy - 4), (cx, cy + 4), cyan, 1, cv2.LINE_AA)
 
-            # Text tag
-            font_scale = 0.38 if r < 30 else 0.45
-            cv2.putText(
-                vis_img,
-                cid_str,
-                (max(4, cx - r), max(14, cy - r - 4)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                font_scale,
-                (0, 235, 255),
-                1,
-                cv2.LINE_AA,
-            )
+            # 3. Badge Tag with dark backing and cyan border
+            conf = float(c.get("confidence", 94.0))
+            cid_str = f"#{idx+1:02d} | {conf:.1f}%"
+            font_scale = 0.34
+            (tw, th), _ = cv2.getTextSize(cid_str, font, font_scale, 1)
+            min_dim = ell.get("minor", r) if ell else r
+            tx = cx - tw // 2
+            ty = cy - int(min_dim) - 5
+            if ty < th + 4:
+                ty = cy + int(min_dim) + th + 5
+            tx = max(2, min(tx, w - tw - 4))
+            ty = max(th + 2, min(ty, h - 4))
+
+            cv2.rectangle(vis_img, (tx - 2, ty - th - 2), (tx + tw + 2, ty + 2), (12, 12, 12), -1)
+            cv2.rectangle(vis_img, (tx - 2, ty - th - 2), (tx + tw + 2, ty + 2), cyan, 1)
+            cv2.putText(vis_img, cid_str, (tx, ty), font, font_scale, cyan, 1, cv2.LINE_AA)
 
         vis_display = cv2.resize(vis_img, (exhibit_w, exhibit_h), interpolation=cv2.INTER_AREA)
         cv2.imwrite(str(output_vis_path), vis_display)

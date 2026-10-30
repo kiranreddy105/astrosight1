@@ -19,6 +19,13 @@ export interface CraterItem {
   diameter_km: number;
   confidence: number;
   bbox: [number, number, number, number];
+  ellipse?: {
+    cx: number;
+    cy: number;
+    major: number;
+    minor: number;
+    angle: number;
+  };
 }
 
 export interface SpatialMeasurement {
